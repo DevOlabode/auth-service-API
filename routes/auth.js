@@ -8,8 +8,8 @@ const ExpressError  = require('../utils/expressError');
 const catchAsync  = require('../utils/catchAsync');
 
 router.post('/register', catchAsync(async(req, res)=>{
-    const {username, email, password} = req.body;
-    const user = await User.register(new User({ username, email }), password);
+    const {email, password} = req.body;
+    const user = await User.register(new User({ email }), password);
     await user.save();
 
     res.status(201).json({msg : 'User registered successfully'});
