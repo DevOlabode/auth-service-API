@@ -43,6 +43,10 @@ db.once('open', () =>{
 
 app.use('/', authRoutes);
 
+app.get('/', (req, res)=>{
+  res.status(202).json({msg : 'The Homepage'})
+})
+
 app.use((err, req, res, next) => {
   const { statusCode = 500, message = "Internal Server Error" } = err;
   res.status(statusCode).json({ error: message });
