@@ -28,7 +28,7 @@ passport.use(new LocalStrategy({ usernameField: 'email' }, User.authenticate()))
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
-const dbUrl = process.env.DB_URL || 'mongodb://localhost:27017/auth';
+const dbUrl = process.env.MONGO_URI || 'mongodb://localhost:27017/auth';
 
 mongoose.connect(dbUrl);
 
