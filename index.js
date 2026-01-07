@@ -1,6 +1,7 @@
 const dotenv = require("dotenv");
 const express = require("express");
 const mongoose = require("mongoose");
+const session = require("express-session");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 
@@ -13,8 +14,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ================================
-   DATABASE (SERVERLESS SAFE)
+   DATABASE CONNECTION 
 ================================ */
+
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+  throw new Error("MONGO_URI is not defined");
+}
 
 mongoose.set("bufferCommands", false);
 
@@ -28,12 +35,13 @@ async function connectDB() {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(process.env.MONGO_URI, {
+    cached.promise = mongoose.connect(MONGO_URI, {
       serverSelectionTimeoutMS: 10000,
     });
   }
 
   cached.conn = await cached.promise;
+  console.log("MongoDB connected");
   return cached.conn;
 }
 
@@ -42,6 +50,37 @@ async function connectDB() {
 ================================ */
 
 app.use(express.json());
+
+const sessionConfig = {
+  name: "auth-service-session",
+  secret: process.env.SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  },
+};
+
+app.use(session(sessionConfig));
+app.use(passport.initialize());
+app.use(passport.session());
+
+/* ================================
+   PASSPORT CONFIG
+================================ */
+
+passport.use(
+  new LocalStrategy({ usernameField: "email" }, User.authenticate())
+);
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+/* ================================
+   ROUTES
+================================ */
 
 app.use(async (req, res, next) => {
   try {
@@ -52,24 +91,10 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.use(passport.initialize());
-
-/* ================================
-   PASSPORT (STATELESS)
-================================ */
-
-passport.use(
-  new LocalStrategy({ usernameField: "email" }, User.authenticate())
-);
-
-/* ================================
-   ROUTES
-================================ */
-
 app.use("/", authRoutes);
 
 app.get("/", (req, res) => {
-  res.json({ msg: "Auth Service API running" });
+  res.status(200).json({ msg: "Auth Service API is running" });
 });
 
 /* ================================
@@ -77,13 +102,15 @@ app.get("/", (req, res) => {
 ================================ */
 
 app.use((err, req, res, next) => {
-  console.error("ERROR:", err);
-  res.status(500).json({ error: err.message || "Internal Server Error" });
+  console.error(err);
+  const { statusCode = 500, message = "Internal Server Error" } = err;
+  res.status(statusCode).json({ error: message });
 });
 
 /* ================================
-   EXPORT FOR VERCEL
+   SERVER
 ================================ */
 
-// ❌ DO NOT use app.listen on Vercel
-module.exports = app;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
